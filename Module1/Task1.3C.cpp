@@ -1,3 +1,7 @@
+// Student Name: Gaganveer Singh
+// Student Roll No: 2210994783
+// Module 1 Task 1.3C
+
 const int PIR_LED = 13; // Define the pin for the PIR LED
 const int TILT_LED = 8; // Define the pin for the TILT LED
 const int PIR = 2; // Define the pin for the PIR sensor 
