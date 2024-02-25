@@ -4,11 +4,19 @@
 #include <iostream>
 #include <cstdlib>
 #include <chrono>
+#include <pthread.h>
 
 using namespace std;
 using namespace std::chrono;
 
 const int ARRAY_SIZE = 1000000;
+const int NUM_THREADS = 2;
+
+struct ThreadData {
+    int* array;
+    int start;
+    int end;
+};
 
 void randomArrayFill(int array[], int ARRAY_SIZE)
 {
@@ -18,53 +26,75 @@ void randomArrayFill(int array[], int ARRAY_SIZE)
     }
 }
 
-// function for placing smaller elments before pivot and higher elements after pivot
-int partition(int array[], int start, int end, int ARRAY_SIZE)
+int partition(int array[], int start, int end)
 {
-    int pivot = array[end]; // considering pivot as last element
+    int pivot = array[end];
     int partitionindex = start;
-
     for (int i = start; i < end; i++)
     {
-        if (array[i] < pivot) // swapping if current element smaller than pivot
+        if (array[i] < pivot)
         {
             swap(array[i], array[partitionindex]);
-            partitionindex++; // incrementing the index to another place
+            partitionindex++;
         }
     }
-    swap(array[end], array[partitionindex]); // swapping pivot to the last element left such that larger and smaller are or different sides
+    swap(array[end], array[partitionindex]);
     return partitionindex;
 }
 
-// function for recursion
-void quick_sort(int array[], int start, int end, int ARRAY_SIZE)
+void* quick_sort_thread(void* arg)
 {
+    ThreadData* data = (ThreadData*)arg;
+    int* array = data->array;
+    int start = data->start;
+    int end = data->end;
     if (start < end)
     {
-        int pidx = partition(array, start, end, ARRAY_SIZE); // index of pivot after partition
-        quick_sort(array, start, pidx - 1, ARRAY_SIZE);      // recursion on smaller elements than pivot
-        quick_sort(array, pidx + 1, end, ARRAY_SIZE);        // recursion on maxIndex elements than pivot
+        int pidx = partition(array, start, end);
+        quick_sort_thread(new ThreadData{array, start, pidx - 1});
+        quick_sort_thread(new ThreadData{array, pidx + 1, end});
     }
+    return NULL;
+}
+
+void quick_sort(int array[], int start, int end)
+{
+    pthread_t threads[NUM_THREADS];
+    ThreadData* data = new ThreadData[NUM_THREADS];
+    int chunk_ARRAY_SIZE = (end - start + 1) / NUM_THREADS;
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        data[i] = {array, start + i * chunk_ARRAY_SIZE, (i == NUM_THREADS - 1) ? end : (start + (i + 1) * chunk_ARRAY_SIZE - 1)};
+        pthread_create(&threads[i], NULL, quick_sort_thread, &data[i]);
+    }
+    for (int i = 0; i < NUM_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+    delete[] data;
 }
 
 int main()
 {
-    int *array = new int[ARRAY_SIZE];
+    int* array = new int[ARRAY_SIZE];
 
     cout << "Size of array used: " << ARRAY_SIZE << endl;
+    cout << "Threads used: " << NUM_THREADS << endl;
 
     srand(time(0));
     randomArrayFill(array, ARRAY_SIZE);
 
-    auto start = std::chrono::high_resolution_clock::now(); // starting time for before multiplication
+    auto start = high_resolution_clock::now();
 
-    quick_sort(array, 0, ARRAY_SIZE - 1, ARRAY_SIZE);
+    quick_sort(array, 0, ARRAY_SIZE - 1);
 
-    auto end = std::chrono::high_resolution_clock::now(); // stoping time after multiplication
+    auto end = high_resolution_clock::now();
 
-    // calculating duration of multiplication
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    cout << "Time taken for multiplication in ms: " << duration.count() << " microseconds" << endl;
+    auto duration = duration_cast<microseconds>(end - start);
+    cout << "Time taken for sorting in ms: " << duration.count() << " microseconds" << endl;
     cout << "Time taken for sorting in Seconds: " << duration.count() /1E6 << " seconds" << endl;
+
+    delete[] array;
+
     return 0;
 }
